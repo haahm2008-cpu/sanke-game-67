@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لعبة الحية Snake مع الإعلانات</title>
+
+<!-- Meta Tag for AdSense verification -->
+<meta name="google-adsense-account" content="ca-pub-3619146705013945">
+
+<!-- AdSense script -->
+<script data-ad-client="ca-pub-3619146705013945" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+<style>
+body {background:#071028; color:#e6eef8; text-align:center; font-family: Arial, sans-serif; margin:0; padding:0;}
+.page {max-width:1200px; margin:0 auto; padding:16px;}
+.ad-box {width:120px;height:60px;background:#ddd;border:1px solid #444;margin:5px;line-height:60px;font-weight:bold;}
+.top-ads, .bottom-ads {display:flex; justify-content:space-around; flex-wrap:wrap; margin:10px 0;}
+.side-ad {width:120px; height:400px; background:#0b1220; color:#e6eef8; position:fixed; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center;}
+#left-ad {left:0;}
+#right-ad {right:0;}
+.game-area {display:flex; justify-content:center; align-items:center; margin:20px 0;}
+canvas {background:#000; border:1px solid #444; border-radius:6px;}
+.modal {position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(3,6,14,0.7); z-index:9999;}
+.modal-inner {background:#07132a; padding:20px; border-radius:12px; width:min(720px,90%); color:#fff; display:flex; flex-direction:column; gap:10px;}
+.close-btn {background:#002b4d;color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;align-self:flex-end;}
+.controls {display:flex; gap:8px; justify-content:center; margin-top:10px;}
+.btn {background:#0b1220;color:#e6eef8;border:1px solid #444;padding:6px 12px;border-radius:6px;cursor:pointer;}
+.score {margin-left:15px;font-size:14px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- Top Ads -->
+  <div class="top-ads">
+    <div class="ad-box">Ad 1</div>
+    <div class="ad-box">Ad 2</div>
+    <div class="ad-box">Ad 3</div>
+    <div class="ad-box">Ad 4</div>
+  </div>
+
+  <!-- Side Ads -->
+  <div id="left-ad" class="side-ad">Left Ad</div>
+  <div id="right-ad" class="side-ad">Right Ad</div>
+
+  <!-- Game Area -->
+  <div class="game-area">
+    <canvas id="gameCanvas" width="480" height="360"></canvas>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn" id="startBtn">Start</button>
+    <button class="btn" id="pauseBtn">Pause</button>
+    <button class="btn" id="restartBtn">Restart</button>
+    <div class="score" id="scoreLabel">Score: 0</div>
+  </div>
+
+  <!-- Bottom Ads -->
+  <div class="bottom-ads">
+    <div class="ad-box">Ad 5</div>
+    <div class="ad-box">Ad 6</div>
+    <div class="ad-box">Ad 7</div>
+    <div class="ad-box">Ad 8</div>
+  </div>
+</div>
+
+<!-- Popup Ad -->
+<div class="modal" id="popupAd">
+  <div class="modal-inner">
+    <button class="close-btn" id="closeModal">أغلق</button>
+    <div>إعلان منبثق كل 10 دقائق</div>
+  </div>
+</div>
+
+<script>
+// ---------- Popup every 10 minutes ----------
+const popup = document.getElementById('popupAd');
+const closeBtn = document.getElementById('closeModal');
+function showPopup() { popup.style.display = 'flex'; }
+function hidePopup() { popup.style.display = 'none'; }
+closeBtn.addEventListener('click', hidePopup);
+setInterval(showPopup, 10*60*1000); // كل 10 دقائق
+
+// ---------- Snake Game ----------
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const gridSize = 16;
+const tileCountX = Math.floor(canvas.width / gridSize);
+const tileCountY = Math.floor(canvas.height / gridSize);
+
+let snake = [{x:Math.floor(tileCountX/2), y:Math.floor(tileCountY/2)}];
+let dir = {x:1, y:0};
+let apple = {};
+let score = 0;
+let running = false;
+let gameInterval = null;
+const fps = 10;
+
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const restartBtn = document.getElementById('restartBtn');
+const scoreLabel = document.getElementById('scoreLabel');
+
+function placeApple() {
+  while(true){
+    const nx = Math.floor(Math.random()*tileCountX);
+    const ny = Math.floor(Math.random()*tileCountY);
+    const collision = snake.some(s=>s.x===nx && s.y===ny);
+    if(!collision){ apple={x:nx,y:ny}; break; }
+  }
+}
+
+function resetGame(){
+  snake=[{x:Math.floor(tileCountX/2),y:Math.floor(tileCountY/2)}];
+  dir={x:1,y:0};
+  score=0;
+  placeApple();
+  updateScore();
+  stopGameLoop();
+  running=false;
+}
+
+function startGame(){ if(running) return; running=true; stopGameLoop(); gameInterval=setInterval(gameLoop,1000/fps); }
+function pauseGame(){ running=false; stopGameLoop(); }
+function stopGameLoop(){ if(gameInterval) clearInterval(gameInterval); gameInterval=null; }
+function updateScore(){ scoreLabel.textContent='Score: '+score; }
+
+function gameOver(){ pauseGame(); setTimeout(()=>{alert('Game over — نقاطك: '+score);},10); }
+
+function gameLoop(){
+  const head={x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+  if(head.x<0||head.x>=tileCountX||head.y<0||head.y>=tileCountY){ gameOver(); return; }
+  if(snake.some(s=>s.x===head.x && s.y===head.y)){ gameOver(); return; }
+  snake.unshift(head);
+  if(head.x===apple.x && head.y===apple.y){ score++; updateScore(); placeApple(); } else { snake.pop(); }
+  draw();
+}
+
+function draw(){
+  ctx.fillStyle="#000";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#ff4d4d";
+  ctx.fillRect(apple.x*gridSize, apple.y*gridSize, gridSize, gridSize);
+  for(let i=0;i<snake.length;i++){
+    const s=snake[i];
+    const intensity=0.6-(i/snake.length)*0.4;
+    ctx.fillStyle=`rgba(${Math.floor(80+120*intensity)},${Math.floor(200*intensity)},${Math.floor(240*intensity)},1)`;
+    ctx.fillRect(s.x*gridSize,s.y*gridSize,gridSize,gridSize);
+  }
+}
+
+// Control keys
+document.addEventListener('keydown',(e)=>{
+  const key=e.key.toLowerCase();
+  if(key==='arrowup'||key==='w'){ if(dir.y!==1) dir={x:0,y:-1}; }
+  else if(key==='arrowdown'||key==='s'){ if(dir.y!==-1) dir={x:0,y:1}; }
+  else if(key==='arrowleft'||key==='a'){ if(dir.x!==1) dir={x:-1,y:0}; }
+  else if(key==='arrowright'||key==='d'){ if(dir.x!==-1) dir={x:1,y:0}; }
+  if(!running) startGame();
+});
+
+// Buttons
+startBtn.addEventListener('click',()=>startGame());
+pauseBtn.addEventListener('click',()=>running?pauseGame():startGame());
+restartBtn.addEventListener('click',()=>{resetGame(); startGame();});
+
+// Init
+window.addEventListener('load',()=>{ resetGame(); draw(); });
+</script>
+</body>
+</html>
